@@ -5,7 +5,7 @@
 
 ## NIM: 10231047
 
-## Link Repositori: 
+## Link Repositori: https://github.com/JoonothanJetr/Proweb
 
 ## 1. Deskripsi Proyek
 Aplikasi E-Commerce Proweb adalah aplikasi web sederhana yang memungkinkan pengguna untuk mengelola produk secara online. Aplikasi ini memiliki antarmuka pengguna yang responsif dan mendukung operasi CRUD (Create, Read, Update, Delete) untuk manajemen produk.
