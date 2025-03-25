@@ -5,11 +5,12 @@ import Modal from './Modal';
 
 const ProdukList = forwardRef((props, ref) => {
     const [produk, setProduk] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [editId, setEditId] = useState(null);
     const [editNama, setEditNama] = useState("");
     const [editHarga, setEditHarga] = useState("");
-    const [originalData, setOriginalData] = useState(null);
-    const [isDataChanged, setIsDataChanged] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
     const [toast, setToast] = useState({
         show: false,
         message: '',
@@ -21,13 +22,32 @@ const ProdukList = forwardRef((props, ref) => {
         data: null
     });
 
-    const refreshData = () => {
-        axios.get('http://localhost:3001/produk')
-            .then((response) => setProduk(response.data))
-            .catch((error) => {
-                console.error(error);
-                showToast('Gagal memuat data produk', 'error');
+    const refreshData = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await axios.get('http://localhost:5000/produk');
+            console.log('Data berhasil dimuat:', response.data);
+            setProduk(response.data);
+        } catch (error) {
+            console.error('Error detail:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status
             });
+            
+            let errorMessage = 'Gagal memuat data produk';
+            if (error.code === 'ERR_NETWORK') {
+                errorMessage = 'Tidak dapat terhubung ke server. Pastikan server backend berjalan.';
+            } else if (error.response?.status === 404) {
+                errorMessage = 'Endpoint tidak ditemukan';
+            }
+            
+            setError(errorMessage);
+            showToast(errorMessage, 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     useImperativeHandle(ref, () => ({
@@ -60,7 +80,7 @@ const ProdukList = forwardRef((props, ref) => {
 
     const confirmDelete = () => {
         const { id } = modal.data;
-        axios.delete(`http://localhost:3001/produk/${id}`)
+        axios.delete(`http://localhost:5000/produk/${id}`)
             .then(() => {
                 setProduk(produk.filter((p) => p.id !== id));
                 showToast('Produk berhasil dihapus', 'success');
@@ -72,27 +92,52 @@ const ProdukList = forwardRef((props, ref) => {
             });
     };
 
-    const confirmEdit = () => {
-        const id = editId;
+    const startEdit = () => {
+        const { id, nama, harga } = modal.data;
+        setEditId(id);
+        setEditNama(nama);
+        setEditHarga(harga.toString());
+        setIsEditing(true);
+        setModal({ isOpen: false, type: null, data: null });
+    };
+
+    const cancelEdit = () => {
+        setEditId(null);
+        setEditNama('');
+        setEditHarga('');
+        setIsEditing(false);
+    };
+
+    const saveEdit = () => {
         if (!editNama || !editHarga) {
             showToast('Nama dan Harga wajib diisi', 'error');
             return;
         }
 
-        axios.put(`http://localhost:3001/produk/${id}`, { 
+        const hargaNum = parseFloat(editHarga);
+        if (isNaN(hargaNum) || hargaNum <= 0) {
+            showToast('Harga harus berupa angka positif', 'error');
+            return;
+        }
+
+        axios.put(`http://localhost:5000/produk/${editId}`, { 
             nama: editNama, 
-            harga: parseFloat(editHarga) 
+            harga: hargaNum 
         })
             .then(response => {
-                setProduk(produk.map(p => p.id === id ? response.data : p));
+                console.log('Response edit produk:', response.data);
+                // Update state produk dengan data yang diperbarui
+                setProduk(produk.map(p => p.id === editId ? response.data : p));
+                // Reset form edit
                 setEditId(null);
                 setEditNama("");
                 setEditHarga("");
+                setIsEditing(false);
                 showToast('Produk berhasil diperbarui', 'success');
             })
             .catch(err => {
-                console.error(err);
-                showToast('Gagal memperbarui produk', 'error');
+                console.error('Error edit produk:', err);
+                showToast(err.response?.data?.message || 'Gagal memperbarui produk', 'error');
             });
     };
 
@@ -125,31 +170,6 @@ const ProdukList = forwardRef((props, ref) => {
         setEditHarga("");
     };
 
-    const startEdit = () => {
-        const { id, nama, harga } = modal.data;
-        setEditId(id);
-        setEditNama(nama);
-        setEditHarga(harga.toString());
-        setOriginalData({ nama, harga: harga.toString() });
-        setIsDataChanged(false);
-        setModal({ isOpen: false, type: null, data: null });
-    };
-
-    const handleInputChange = (field, value) => {
-        if (field === 'nama') {
-            setEditNama(value);
-        } else if (field === 'harga') {
-            setEditHarga(value);
-        }
-
-        // Cek apakah data berubah dari data asli
-        const isChanged = field === 'nama' 
-            ? value !== originalData.nama || editHarga !== originalData.harga
-            : editNama !== originalData.nama || value !== originalData.harga;
-        
-        setIsDataChanged(isChanged);
-    };
-
     return (
         <>
             <Toast 
@@ -173,121 +193,115 @@ const ProdukList = forwardRef((props, ref) => {
                 type={modal.type}
             />
 
-            <div className="container-fluid py-4">
-                <div className="row justify-content-center">
-                    <div className="col-12 col-md-10 col-lg-8">
-                        <div className="card shadow-sm">
-                            <div className="card-header bg-primary text-white py-3">
-                                <h5 className="card-title mb-0 d-flex align-items-center">
-                                    <i className="bi bi-box-seam me-2"></i>
-                                    Daftar Produk
-                                </h5>
+            <div className="card">
+                <div className="card-header">
+                    <h5 className="card-title">
+                        <i className="bi bi-box-seam me-2"></i>
+                        Daftar Produk
+                    </h5>
+                </div>
+                <div className="card-body p-0">
+                    {loading ? (
+                        <div className="text-center py-5">
+                            <div className="spinner-border" role="status">
+                                <span className="visually-hidden">Loading...</span>
                             </div>
-                            <div className="card-body p-0">
-                                <div className="table-responsive">
-                                    <table className="table table-hover align-middle mb-0">
-                                        <thead>
-                                            <tr className="bg-light border-top">
-                                                <th className="px-4 py-3 text-center" style={{width: "8%"}}>No</th>
-                                                <th className="px-4 py-3" style={{width: "35%"}}>Nama Produk</th>
-                                                <th className="px-4 py-3" style={{width: "25%"}}>Harga</th>
-                                                <th className="px-4 py-3 text-center" style={{width: "32%"}}>Aksi</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {produk.map((item, index) => (
-                                                <tr key={item.id} className="border-bottom">
-                                                    <td className="px-4 py-3 text-center">{index + 1}</td>
-                                                    <td className="px-4 py-3">
-                                                        {editId === item.id ? (
-                                                            <input 
-                                                                type="text" 
-                                                                className="form-control form-control-sm"
-                                                                value={editNama} 
-                                                                onChange={(e) => handleInputChange('nama', e.target.value)}
-                                                                placeholder="Nama Produk"
-                                                            />
-                                                        ) : (
-                                                            <span className="fw-medium text-dark">{item.nama}</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        {editId === item.id ? (
-                                                            <input 
-                                                                type="number" 
-                                                                className="form-control form-control-sm"
-                                                                value={editHarga} 
-                                                                onChange={(e) => handleInputChange('harga', e.target.value)}
-                                                                placeholder="Harga Produk"
-                                                            />
-                                                        ) : (
-                                                            <span className="text-success fw-semibold">
-                                                                {formatHarga(item.harga)}
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <div className="d-flex justify-content-center">
-                                                            {editId === item.id ? (
-                                                                <div className="action-buttons" style={{width: "400px"}}>
-                                                                    <button 
-                                                                        className={`btn ${isDataChanged ? 'btn-success' : 'btn-secondary'} btn-sm flex-fill`}
-                                                                        onClick={confirmEdit}
-                                                                        disabled={!isDataChanged}
-                                                                        style={{
-                                                                            opacity: isDataChanged ? 1 : 0.6,
-                                                                            cursor: isDataChanged ? 'pointer' : 'not-allowed'
-                                                                        }}
-                                                                    >
-                                                                        <i className="bi bi-check-lg me-2"></i>
-                                                                        Simpan
-                                                                    </button>
-                                                                    <div className="action-divider"></div>
-                                                                    <button 
-                                                                        className="btn btn-secondary btn-sm flex-fill"
-                                                                        onClick={closeModal}
-                                                                    >
-                                                                        <i className="bi bi-x-lg me-2"></i>
-                                                                        Batal
-                                                                    </button>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="action-buttons" style={{width: "400px"}}>
-                                                                    <button 
-                                                                        className="btn btn-primary btn-sm flex-fill"
-                                                                        onClick={() => handleUpdate(item.id, item.nama, item.harga)}
-                                                                    >
-                                                                        <i className="bi bi-pencil me-2"></i>
-                                                                        Edit
-                                                                    </button>
-                                                                    <div className="action-divider"></div>
-                                                                    <button 
-                                                                        className="btn btn-danger btn-sm flex-fill"
-                                                                        onClick={() => handleDelete(item.id)}
-                                                                    >
-                                                                        <i className="bi bi-trash me-2"></i>
-                                                                        Hapus
-                                                                    </button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            {produk.length === 0 && (
-                                                <tr>
-                                                    <td colSpan="4" className="text-center py-4 text-muted">
-                                                        <i className="bi bi-inbox fs-4 me-2"></i>
-                                                        <span className="fs-5">Belum ada produk</span>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                            <p className="mt-3 text-muted">Memuat data produk...</p>
                         </div>
-                    </div>
+                    ) : error ? (
+                        <div className="alert alert-danger m-4" role="alert">
+                            <i className="bi bi-exclamation-triangle me-2"></i>
+                            {error}
+                        </div>
+                    ) : produk.length === 0 ? (
+                        <div className="text-center py-5">
+                            <i className="bi bi-inbox text-muted" style={{ fontSize: '3rem' }}></i>
+                            <p className="mt-3 text-muted">Belum ada produk yang ditambahkan</p>
+                        </div>
+                    ) : (
+                        <div className="table-responsive">
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th style={{width: '5%'}}>No</th>
+                                        <th style={{width: '40%'}}>Nama Produk</th>
+                                        <th style={{width: '25%'}}>Harga</th>
+                                        <th style={{width: '30%'}} className="text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {produk.map((item, index) => (
+                                        <tr key={item.id}>
+                                            <td className="text-center">{index + 1}</td>
+                                            <td>
+                                                {editId === item.id ? (
+                                                    <input
+                                                        type="text"
+                                                        className="form-control"
+                                                        value={editNama}
+                                                        onChange={(e) => setEditNama(e.target.value)}
+                                                    />
+                                                ) : (
+                                                    <span className="fw-medium">{item.nama}</span>
+                                                )}
+                                            </td>
+                                            <td>
+                                                {editId === item.id ? (
+                                                    <input
+                                                        type="number"
+                                                        className="form-control"
+                                                        value={editHarga}
+                                                        onChange={(e) => setEditHarga(e.target.value)}
+                                                    />
+                                                ) : (
+                                                    <span className="fw-semibold text-primary">{formatHarga(item.harga)}</span>
+                                                )}
+                                            </td>
+                                            <td>
+                                                <div className="d-flex justify-content-center gap-2">
+                                                    {editId === item.id ? (
+                                                        <>
+                                                            <button
+                                                                className="btn btn-sm btn-success"
+                                                                onClick={saveEdit}
+                                                            >
+                                                                <i className="bi bi-check-lg"></i>
+                                                                <span className="d-none d-md-inline ms-1">Simpan</span>
+                                                            </button>
+                                                            <button
+                                                                className="btn btn-sm btn-secondary"
+                                                                onClick={cancelEdit}
+                                                            >
+                                                                <i className="bi bi-x-lg"></i>
+                                                                <span className="d-none d-md-inline ms-1">Batal</span>
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <button
+                                                                className="btn btn-sm btn-primary"
+                                                                onClick={() => handleUpdate(item.id, item.nama, item.harga)}
+                                                            >
+                                                                <i className="bi bi-pencil-square"></i>
+                                                                <span className="d-none d-md-inline ms-1">Edit</span>
+                                                            </button>
+                                                            <button
+                                                                className="btn btn-sm btn-danger"
+                                                                onClick={() => handleDelete(item.id)}
+                                                            >
+                                                                <i className="bi bi-trash3"></i>
+                                                                <span className="d-none d-md-inline ms-1">Hapus</span>
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             </div>
         </>

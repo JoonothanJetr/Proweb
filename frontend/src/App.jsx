@@ -16,12 +16,14 @@ function App() {
       {/* Navigation */}
       <nav className="nav">
         <div className="nav-content">
-          <h1 className="nav-title">Ocean Store</h1>
-          <div className="nav-links">
-            <a href="#home">Beranda</a>
-            <a href="#products">Produk</a>
-            <a href="#about">Tentang</a>
-            <a href="#contact">Kontak</a>
+          <div className="nav-brand">Ocean Store</div>
+          <div className="nav-menu">
+            <div className="nav-links">
+              <a href="#home" className="active">Beranda</a>
+              <a href="#produk">Produk</a>
+              <a href="#tentang">Tentang</a>
+              <a href="#kontak">Kontak</a>
+            </div>
           </div>
         </div>
       </nav>
@@ -36,19 +38,21 @@ function App() {
 
       {/* Main Content */}
       <main className="main-content">
-        <section className="tambah-produk-section">
-          <h2>Tambah Produk Baru</h2>
-          <div className="card">
-            <TambahProduk onProdukAdded={handleProdukAdded} />
+        <div className="container">
+          <div className="row">
+            <div className="col-12 col-lg-4 mb-4">
+              <section className="tambah-produk-section">
+                <h2 className="section-title">Tambah Produk</h2>
+                <TambahProduk onProdukAdded={handleProdukAdded} />
+              </section>
+            </div>
+            <div className="col-12 col-lg-8">
+              <section className="produk-list-section">
+                <ProdukList ref={produkListRef} />
+              </section>
+            </div>
           </div>
-        </section>
-
-        <section className="produk-list-section">
-          <h2>Daftar Produk</h2>
-          <div className="product-grid">
-            <ProdukList ref={produkListRef} />
-          </div>
-        </section>
+        </div>
       </main>
 
       {/* Footer */}

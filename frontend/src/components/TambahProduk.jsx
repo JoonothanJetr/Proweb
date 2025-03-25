@@ -35,7 +35,23 @@ function TambahProduk({ onProdukAdded }) {
       return;
     }
 
-    axios.post('http://localhost:3001/produk', { nama, harga })
+    // Validasi nama
+    if (nama.length < 3 || nama.length > 100) {
+      showToast('Nama produk harus antara 3-100 karakter', 'error');
+      return;
+    }
+
+    // Validasi harga
+    const hargaNum = parseFloat(harga);
+    if (isNaN(hargaNum) || hargaNum <= 0) {
+      showToast('Harga harus berupa angka positif', 'error');
+      return;
+    }
+
+    axios.post('http://localhost:5000/produk', { 
+      nama: nama.trim(),
+      harga: hargaNum
+    })
       .then((res) => {
         console.log('Produk berhasil ditambah:', res.data);
         setNama('');
@@ -48,46 +64,51 @@ function TambahProduk({ onProdukAdded }) {
       })
       .catch((err) => {
         console.error('Error menambah produk:', err);
-        showToast('Gagal menambahkan produk', 'error');
+        const errorMessage = err.response?.data?.message || 'Gagal menambahkan produk';
+        showToast(errorMessage, 'error');
       });
   };
 
   return (
-    <div className="form-container">
+    <div className="tambah-produk-wrapper">
       <Toast 
         show={toast.show}
         message={toast.message}
         type={toast.type}
         onClose={hideToast}
       />
-      <form onSubmit={handleSubmit} className="card p-4 shadow-sm">
-        <div className="mb-3">
-          <label htmlFor="nama" className="form-label">Nama Produk</label>
-          <input
-            id="nama"
-            type="text"
-            className="form-control"
-            value={nama}
-            onChange={(e) => setNama(e.target.value)}
-            placeholder="Masukkan nama produk"
-          />
+      <div className="card">
+        <div className="card-body p-4">
+          <form onSubmit={handleSubmit}>
+            <div className="form-group mb-3">
+              <label htmlFor="nama" className="form-label">Nama Produk</label>
+              <input
+                id="nama"
+                type="text"
+                className="form-control"
+                value={nama}
+                onChange={(e) => setNama(e.target.value)}
+                placeholder="Masukkan nama produk"
+              />
+            </div>
+            <div className="form-group mb-3">
+              <label htmlFor="harga" className="form-label">Harga Produk</label>
+              <input
+                id="harga"
+                type="number"
+                className="form-control"
+                value={harga}
+                onChange={(e) => setHarga(e.target.value)}
+                placeholder="Masukkan harga produk"
+              />
+            </div>
+            <button type="submit" className="btn btn-primary mt-2">
+              <i className="bi bi-plus-circle me-2"></i>
+              Tambah Produk
+            </button>
+          </form>
         </div>
-        <div className="mb-3">
-          <label htmlFor="harga" className="form-label">Harga</label>
-          <input
-            id="harga"
-            type="number"
-            className="form-control"
-            value={harga}
-            onChange={(e) => setHarga(e.target.value)}
-            placeholder="Masukkan harga produk"
-          />
-        </div>
-        <button type="submit" className="btn btn-primary">
-          <i className="bi bi-plus-circle me-2"></i>
-          Tambah Produk
-        </button>
-      </form>
+      </div>
     </div>
   );
 }

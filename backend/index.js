@@ -34,13 +34,47 @@ app.post('/data', (req, res) => {
   res.send(`Data diterima: ${nama}`);
 });
 
-// CREATE - Tambah produk baru
-app.post('/produk', validateProduk, async (req, res, next) => {
-  const { nama, harga } = req.body;
+// READ - Ambil semua produk
+app.get('/produk', async (req, res, next) => {
   try {
-    const result = await queryWithRetry(
+    const result = await pool.query(
+      'SELECT * FROM produk ORDER BY id DESC'
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error saat mengambil produk:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengambil data produk'
+    });
+  }
+});
+
+// CREATE - Tambah produk baru
+app.post('/produk', async (req, res) => {
+  const { nama, harga } = req.body;
+  
+  try {
+    // Validasi input
+    if (!nama || !harga) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Nama dan harga produk wajib diisi'
+      });
+    }
+
+    const hargaNum = parseFloat(harga);
+    if (isNaN(hargaNum) || hargaNum <= 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Harga harus berupa angka positif'
+      });
+    }
+
+    const result = await pool.query(
       'INSERT INTO produk (nama, harga) VALUES ($1, $2) RETURNING *',
-      [nama, harga]
+      [nama, hargaNum]
     );
 
     res.status(201).json({
@@ -49,38 +83,43 @@ app.post('/produk', validateProduk, async (req, res, next) => {
       data: result.rows[0]
     });
   } catch (err) {
-    next(err);
-  }
-});
-
-// READ - Ambil semua produk
-app.get('/produk', async (req, res, next) => {
-  try {
-    const result = await queryWithRetry(
-      'SELECT * FROM produk ORDER BY created_at DESC'
-    );
-
-    res.json({
-      status: 'success',
-      message: 'Data produk berhasil diambil',
-      data: result.rows
+    console.error('Error saat menambah produk:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'Gagal menambahkan produk'
     });
-  } catch (err) {
-    next(err);
   }
 });
 
 // UPDATE - Update produk
-app.put('/produk/:id', validateProduk, async (req, res, next) => {
+app.put('/produk/:id', async (req, res) => {
   const { id } = req.params;
   const { nama, harga } = req.body;
   
   try {
-    const result = await queryWithRetry(
+    // Validasi input
+    if (!nama || !harga) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Nama dan harga produk wajib diisi'
+      });
+    }
+
+    const hargaNum = parseFloat(harga);
+    if (isNaN(hargaNum) || hargaNum <= 0) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Harga harus berupa angka positif'
+      });
+    }
+
+    // Jalankan query update
+    const result = await pool.query(
       'UPDATE produk SET nama = $1, harga = $2 WHERE id = $3 RETURNING *',
-      [nama, harga, id]
+      [nama, hargaNum, id]
     );
 
+    // Cek jika produk tidak ditemukan
     if (result.rows.length === 0) {
       return res.status(404).json({
         status: 'error',
@@ -88,13 +127,14 @@ app.put('/produk/:id', validateProduk, async (req, res, next) => {
       });
     }
 
-    res.json({
-      status: 'success',
-      message: 'Produk berhasil diperbarui',
-      data: result.rows[0]
-    });
+    // Kirim response sukses
+    res.json(result.rows[0]);
   } catch (err) {
-    next(err);
+    console.error('Error saat update produk:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'Gagal memperbarui produk'
+    });
   }
 });
 
