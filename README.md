@@ -137,9 +137,10 @@ proweb/
    - Validasi nama produk (3-100 karakter)
    - Validasi harga (angka positif)
    - Validasi tombol simpan saat edit
-   - Umpan balik visual untuk input yang tidak valid
-   - Pesan error spesifik untuk setiap jenis kesalahan input
+   - Umpan balik "Gagal menambahkan produk" untuk input yang tidak valid
 
+   ![Form Simpan](2edit.png)
+   ![Form k](100word.png)
 3. UI/UX
    - **Modal Konfirmasi**
      - Desain modern dengan animasi transisi
@@ -159,9 +160,8 @@ proweb/
      - Optimasi text dan elemen visual untuk berbagai ukuran device
    
    - **Loading & Error States**
-     - Spinner saat loading data
-     - Pesan error yang informatif
-     - Empty state dengan visual menarik
+     - Pesan error
+     - Empty state
      - Caching data untuk meminimalkan loading
 
 4. Keamanan
